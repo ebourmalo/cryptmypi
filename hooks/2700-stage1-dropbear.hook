@@ -35,8 +35,8 @@ chmod 600 ${CHROOTDIR}/etc/dropbear-initramfs/authorized_keys
 
 
 # Update dropbear for some sleep in initramfs
-sed -i 's/run_dropbear &/sleep 5\nrun_dropbear &/g' ${CHROOTDIR}/usr/share/initramfs-tools/scripts/init-premount/dropbear
-
+sed -i 's/run_dropbear &/sleep 5\n/sbin/dropbear -V\n&/g' ${CHROOTDIR}/usr/share/initramfs-tools/scripts/init-premount/dropbear
+# sed -i 's/Starting dropbear/& with params -$flags ${DROPBEAR_OPTIONS-}/g' ${CHROOTDIR}/usr/share/initramfs-tools/scripts/init-premount/dropbear
 
 # Change the port that dropbear runs on to make our lives easier
 sed -i 's/#DROPBEAR_OPTIONS=/DROPBEAR_OPTIONS="-p 2222"/g' ${CHROOTDIR}/etc/dropbear-initramfs/config
