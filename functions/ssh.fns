@@ -29,3 +29,5 @@ backup_and_use_sshkey(){
         cp "${_TMP_KEYPATH}" "${_CONFDIR}/${_TMP_KEYNAME}"
     }
 }
+
+# ssh-keygen -q -t rsa -N '' -f /app/config/id_rsa 2>/dev/null <<< y >/dev/null

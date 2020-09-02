@@ -64,3 +64,14 @@ $ `./cryptmypi.sh examples/explore configuration_profile_directory`
 There is an actual `explore` directory that contains an customized configuration profile. This profile overwrites the default stage1 and stage2 hooks so that no formatting, partitioning, etc is done. It reads another configuration profile and mounts an block device accordingly.
 
 Aditionally, you can use this "hack" configuration for more than chrooting to bash. You may update existing systems by copying the `examples/explore` directory and changing `stage2_optional_hooks` to execute optional hooks or other commands.
+
+## Manu custom
+
+run docker:
+docker container run --privileged=true --device-cgroup-rule='c 42:* rmw' -it kali-light /bin/bash
+
+- Register ssh pub key to ngrok
+- get tcp reserved address
+- copy local SSH key for local SSH access = dropbear
+- create and copy ssh keys for box (`ssh-keygen -t rsa -N ''`)
+

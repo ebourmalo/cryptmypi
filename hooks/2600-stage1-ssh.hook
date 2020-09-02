@@ -19,7 +19,7 @@ fi
 # Append our key to the default user's authorized_keys file
 echo_debug "Creating authorized_keys file"
 mkdir -p "${CHROOTDIR}/root/.ssh/"
-cat "${_SSH_LOCAL_KEYFILE}.pub" > "${CHROOTDIR}/root/.ssh/authorized_keys"
+cat "${_SSH_LOCAL_KEYFILE}" > "${CHROOTDIR}/root/.ssh/authorized_keys"
 chmod 600 "${CHROOTDIR}/root/.ssh/authorized_keys"
 
 

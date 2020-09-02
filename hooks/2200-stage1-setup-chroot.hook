@@ -3,4 +3,8 @@ set -e
 
 
 chroot_mount ${_BUILDDIR}/root
+# Run hook DNS to fix issues "Temporary failure resolving..."
+# gpg --keyserver pgpkeys.mit.edu --recv-key 11764EE8AC24832F
+# gpg -a --export 11764EE8AC24832F | sudo apt-key add -
+myhooks "optional-sys-dns"
 chroot_update

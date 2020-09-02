@@ -30,7 +30,7 @@ rm -f ${CHROOTDIR}/etc/dropbear-initramfs/authorized_keys.tmp
 
 
 # Now append our key to dropbear authorized_keys file
-cat "${_SSH_LOCAL_KEYFILE}.pub" >> ${CHROOTDIR}/etc/dropbear-initramfs/authorized_keys
+cat "${_SSH_LOCAL_KEYFILE}" >> ${CHROOTDIR}/etc/dropbear-initramfs/authorized_keys
 chmod 600 ${CHROOTDIR}/etc/dropbear-initramfs/authorized_keys
 
 

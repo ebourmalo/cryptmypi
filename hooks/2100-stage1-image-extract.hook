@@ -9,7 +9,9 @@ mkdir ${_BUILDDIR}/mount
 echo_debug "Extracting image: ${_IMAGENAME} ..."
 case ${_IMAGENAME} in
     *.xz)
-        xz --decompress --stdout ${_IMAGEDIR}/${_IMAGENAME} > ${_BUILDDIR}/cryptmypi.img
+        # xz --decompress --stdout ${_IMAGEDIR}/${_IMAGENAME} > ${_BUILDDIR}/cryptmypi.img
+        echo_debug "Copying image: ${_IMAGENAME} ..."
+        cp ${_IMAGEDIR}/kali-linux-2020.3-rpi3-nexmon-64.img ${_BUILDDIR}/cryptmypi.img
         ;;
     *.zip)
         unzip -p ${_IMAGEDIR}/${_IMAGENAME} > ${_BUILDDIR}/cryptmypi.img
@@ -22,9 +24,14 @@ esac
 
 
 echo_debug "Mounting loopback ..."
+# losetup --help
+# losetup -a
 loopdev=$(losetup -f --show ${_BUILDDIR}/cryptmypi.img)
 partprobe ${loopdev}
 
+echo_debug "Check loopback ..."
+ls /dev/loop*
+lsblk
 
 # Extract root partition
 mount ${loopdev}p2 ${_BUILDDIR}/mount

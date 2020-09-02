@@ -84,4 +84,5 @@ echo 'dm_crypt' >> ${_BUILDDIR}/root/etc/initramfs-tools/modules
 
 # Disable autoresize
 chroot_execute systemctl disable rpiwiggle
+# file does not exist in 2020.3 release
 rm ${_BUILDDIR}/root/root/scripts/rpi-wiggle.sh
