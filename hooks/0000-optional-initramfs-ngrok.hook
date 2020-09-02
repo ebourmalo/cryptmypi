@@ -6,26 +6,20 @@ set -e
 #   https://superuser.com/questions/1289564/how-to-make-port-forwarding-in-initramfs-stage/1289835#1289835
 #   https://www.ullright.org/ullWiki/show/initramfs-tools
 #   https://github.com/ceremcem/unlock-luks-partition/blob/master/reverse-tunnel-setup.md
+#
+# Regular SSH tunnel:
+#   ssh -R 0:localhost:22 tunnel.us.ngrok.com tcp 22
+# SSH tunnel with reserved address:
+#   ssh -R 1.tcp.ngrok.io:24313:localhost:22 tunnel.us.ngrok.com tcp
+# See official docs: https://ngrok.com/docs#ssh-gateway
 
-# equivalent: `ngrok tcp --remote-addr=1.tcp.ngrok.io:24313 22`
-# ssh -R 1.tcp.ngrok.io:24313:localhost:22 tunnel.us.ngrok.com tcp
-
-# _NGROK_RESERVED_TCP_ADDRESS
-# _NGROK_SSHLUKS_PORT
-# _NGROK_SERVICE_DOMAIN
-
-echo_debug "Attempting to set ngrok channel to INITRAMFS..."
-
+echo_debug "Attempting to create ngrok tunnel in INITRAMFS..."
 
 if [ -z "${_NGROK_RESERVED_TCP_ADDRESS}" ]; then
     echo_warn "SKIPPING ngrok setup: '_NGROK_RESERVED_TCP_ADDRESS' variable was not set."
 else
-    if [ -z "${_NGROK_SSHLUKS_PORT}" ]; then
-        _NGROK_SSHLUKS_PORT=2222
-        echo_warn "_NGROK_SSHLUKS_PORT is not set on config: Setting default value ${_NGROK_SSHLUKS_PORT}"
-    fi
 
-    echo_debug "Assuring box keyfile exists"
+    # echo_debug "Assuring box keyfile exists"
     # assure_box_sshkey "${_HOSTNAME}"
 
     echo_debug "Creating initramfs script ngrok_tunnel"
@@ -47,6 +41,8 @@ esac
 
 . /scripts/functions
 
+# wait for network and dropbear to be ready
+sleep 30
 log_begin_msg "Starting Ngrok tunnel ..."
 
 /sbin/ifconfig lo up
@@ -59,13 +55,10 @@ EOT
     cat <<EOT > ${CHROOTDIR}/etc/initramfs-tools/ssh_tunnel.sh
 # !/bin/sh
 
-_SSHHUB_HOST="${_SSHHUB_ADDRESS}"
-_SSHHUB_IP="${_SSHHUB_IP}"
-
 while test -f /etc/dropbear-id_rsa
 do
-    /bin/dbclient -i /etc/dropbear-id_rsa ${_SSHHUB_USERNAME}@${_SSHHUB_ADDRESS} -R ${_SSHHUB_REFERENCE}:${_SSHHUB_SSHLUKS_PORT}:127.0.0.1:2222 -N -y -y -o ExitOnForwardFailure=yes
-    test -f /etc/dropbear-id_rsa && /bin/dbclient -i /etc/dropbear-id_rsa ${_SSHHUB_USERNAME}@${_SSHHUB_IP} -R ${_SSHHUB_REFERENCE}:${_SSHHUB_SSHLUKS_PORT}:127.0.0.1:2222 -N -y -y -o ExitOnForwardFailure=yes
+    # 2222 is the port we opened with dropbear
+    /bin/dbclient -i /etc/dropbear-id_rsa -R ${_NGROK_RESERVED_TCP_ADDRESS}:localhost:2222 -y -y -f -o ExitOnForwardFailure=yes ${_NGROK_SERVICE_DOMAIN} tcp
     test -f /etc/dropbear-id_rsa && sleep 60
     for i in \$(ps aux | grep dbclient | grep -v 'grep' | awk '{print \$1}'); do kill -9 \$i; done
 done
@@ -115,8 +108,8 @@ EOT
     rm "${CHROOTDIR}/etc/initramfs-tools/id_rsa.tmp"
 
 
-    echo_debug "Creating initramfs script kill_sshhub"
-    cat <<EOT > ${CHROOTDIR}/etc/initramfs-tools/scripts/local-bottom/kill_sshhub
+    echo_debug "Creating initramfs script kill_ngrok"
+    cat <<EOT > ${CHROOTDIR}/etc/initramfs-tools/scripts/local-bottom/kill_ngrok
 #!/bin/sh
 
 PREREQ=""
@@ -132,66 +125,19 @@ prereqs)
     ;;
 esac
 
-echo "Killing sshhub so the system takes over later."
+echo "Killing ngrok so the system takes over later."
 
 rm /etc/dropbear-id_rsa
 for i in \$(ps aux | grep 'ssh_tunnel.sh' | grep -v 'grep' | awk '{print \$1}'); do kill -9 \$i; done
 for i in \$(ps aux | grep 'dbclient' | grep -v 'grep' | awk '{print \$1}'); do kill -9 \$i; done
 EOT
-    chmod +x "${CHROOTDIR}/etc/initramfs-tools/scripts/local-bottom/kill_sshhub"
+    chmod +x "${CHROOTDIR}/etc/initramfs-tools/scripts/local-bottom/kill_ngrok"
 
+    _NGROK_RESERVED_DOMAIN=${_NGROK_RESERVED_TCP_ADDRESS%%:*}
+    _NGROK_RESERVED_PORT=${_NGROK_RESERVED_TCP_ADDRESS##*:}
 
-    echo_debug "Creating script to removes this key from SSHHUB: ${_CONFDIR}/sshhub_${_SSHHUB_REFERENCE}_remove"
-    cat <<EOT > ${_CONFDIR}/sshhub_${_SSHHUB_REFERENCE}_remove
-#!/bin/bash
-cat ${_KEYFILE}.pub | ssh ${_SSHHUB_USERNAME}@sshhub.de pubkey rm
-EOT
-    chmod +x ${_CONFDIR}/sshhub_${_SSHHUB_REFERENCE}_remove
-
-
-    echo_debug "Editing ~/.ssh/config"
-
-    echo_debug "    Verifying if sshhub hub alias exists in $_USER_HOME/.ssh/config ..."
-    if test -f $_USER_HOME/.ssh/config && grep -q "^Host hub\s*" $_USER_HOME/.ssh/config
-    then
-        echo_debug "        ... sshhub host definition found."
-    else
-        echo_debug "        ... sshhub host definition not found: creating it"
-        cat <<EOT >> $_USER_HOME/.ssh/config
-
-# cryptmypi-sshhub-entry-start
-Host hub
-    Hostname sshhub.de
-    User ${_SSHHUB_USERNAME}
-    IdentityFIle ${_SSHHUB_LOCAL_KEYFILE}
-# cryptmypi-sshhub-entry-end
-EOT
-    fi
-
-    echo_debug "    Creating/Replacing ${_SSHHUB_REFERENCE}-boot host definition ..."
-    _ENTRYCOMMENT="# cryptmypi-${_SSHHUB_REFERENCE}-boot-entry"
-    sed -i "/^${_ENTRYCOMMENT}-start/,/^${_ENTRYCOMMENT}-end/{/^${_ENTRYCOMMENT}-start/!{/^${_ENTRYCOMMENT}-end/!d}}" $_USER_HOME/.ssh/config
-    sed -i "/${_ENTRYCOMMENT}/d" $_USER_HOME/.ssh/config
-cat <<EOT >> $_USER_HOME/.ssh/config
-
-${_ENTRYCOMMENT}-start
-Host ${_SSHHUB_REFERENCE}-boot
-    HostName ${_SSHHUB_REFERENCE}
-    User root
-    Port ${_SSHHUB_SSHLUKS_PORT}
-    IdentityFile ${_SSH_LOCAL_KEYFILE}
-    ProxyJump hub
-${_ENTRYCOMMENT}-end
-EOT
-
-    echo_debug "    Removing unecessary empty lines"
-    sed -i 'N;/^\n$/D;P;D;' $_USER_HOME/.ssh/config
-
-
-    echo_debug " ... sshhub.de INITRAMFS SSH channel set up! To connect, use:"
+    echo_debug " ... ngrok INITRAMFS SSH tunnel set up! To connect, use:"
     echo_debug ""
-    echo_debug "   ssh -i \"${_SSH_LOCAL_KEYFILE}\" -J ${_SSHHUB_USERNAME}@sshhub.de root@${_SSHHUB_REFERENCE} -p ${_SSHHUB_SSHLUKS_PORT}"
-    echo_debug "   or"
-    echo_debug "   ssh ${_SSHHUB_REFERENCE}-boot"
+    echo_debug "   ssh root@${_NGROK_RESERVED_DOMAIN} -p ${_NGROK_RESERVED_PORT}"
     echo_debug ""
 fi

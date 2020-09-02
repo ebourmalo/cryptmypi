@@ -1,0 +1,48 @@
+#!/bin/bash
+set -e
+
+
+echo_debug "Attempting to create ngrok tunnel..."
+
+
+if [ -z "${_NGROK_RESERVED_TCP_ADDRESS}" ]; then
+    echo_warn "SKIPPING ngrok setup: '_NGROK_RESERVED_TCP_ADDRESS' variable was not set."
+else
+    # echo_debug "Assuring box keyfile exists"
+    # assure_box_sshkey "${_HOSTNAME}"
+
+    echo_debug "Creating script to create and maintain ngrok channel..."
+    cat <<EOT > ${CHROOTDIR}/opt/sys-ngrok-channel.sh
+#!/bin/bash
+
+while true
+do
+    sleep 30
+    ssh -i /root/.ssh/id_rsa -R ${_NGROK_RESERVED_TCP_ADDRESS}:localhost:22 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${_NGROK_SERVICE_DOMAIN} tcp
+done
+EOT
+    chmod +x ${CHROOTDIR}/opt/sys-ngrok-channel.sh
+
+
+    echo_debug "Creating startup service"
+    cat <<EOT > ${CHROOTDIR}/etc/systemd/system/ngrok.service
+[Unit]
+Description=ngrok
+
+[Service]
+Type=oneshot #or simple
+ExecStart=/opt/sys-ngrok-channel.sh
+
+[Install]
+WantedBy=multi-user.target
+EOT
+    chroot_execute systemctl enable ngrok.service
+
+    _NGROK_RESERVED_DOMAIN=${_NGROK_RESERVED_TCP_ADDRESS%%:*}
+    _NGROK_RESERVED_PORT=${_NGROK_RESERVED_TCP_ADDRESS##*:}
+
+    echo_debug " ... ngrok tunnel set up! To connect, use:"
+    echo_debug ""
+    echo_debug "   ssh root@${_NGROK_RESERVED_DOMAIN} -p ${_NGROK_RESERVED_PORT}"
+    echo_debug ""
+fi
