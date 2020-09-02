@@ -19,6 +19,8 @@ echo_debug "Making the cryptsetup settings ..."
 # Update /boot/cmdline.txt to boot crypt
 sed -i 's#root=/dev/mmcblk0p2#root=/dev/mapper/crypt cryptdevice=/dev/mmcblk0p2:crypt#g' ${_BUILDDIR}/root/boot/cmdline.txt
 sed -i 's#rootfstype=ext3#rootfstype=ext4#g' ${_BUILDDIR}/root/boot/cmdline.txt
+# enable DEBUG mode
+sed -i 's#net.ifnames=0#& debug#g' ${_BUILDDIR}/root/boot/cmdline.txt
 
 # Enable cryptsetup when building initramfs
 echo "CRYPTSETUP=y" >> ${_BUILDDIR}/root/etc/cryptsetup-initramfs/conf-hook
