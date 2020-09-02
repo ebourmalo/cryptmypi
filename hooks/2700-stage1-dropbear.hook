@@ -39,8 +39,7 @@ sed -i 's/run_dropbear &/sleep 5\n/sbin/dropbear -V\n&/g' ${CHROOTDIR}/usr/share
 # sed -i 's/Starting dropbear/& with params -$flags ${DROPBEAR_OPTIONS-}/g' ${CHROOTDIR}/usr/share/initramfs-tools/scripts/init-premount/dropbear
 
 # Change the port that dropbear runs on to make our lives easier
-sed -i 's/#DROPBEAR_OPTIONS=/DROPBEAR_OPTIONS="-p 2222"/g' ${CHROOTDIR}/etc/dropbear-initramfs/config
-
+sed -i 's/#DROPBEAR_OPTIONS=/DROPBEAR_OPTIONS="-E -F -a -p 2222"/g' ${CHROOTDIR}/etc/dropbear-initramfs/config
 
 # Using provided dropbear keys (or backuping generating ones for later usage)
 backup_and_use_sshkey ${CHROOTDIR}/etc/dropbear-initramfs/dropbear_dss_host_key
